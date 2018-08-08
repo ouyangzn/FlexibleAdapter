@@ -19,11 +19,15 @@ import eu.davidea.viewholders.FlexibleViewHolder;
  * <p><b>Note:</b> THIS ITEM IS NOT A SCROLLABLE HEADER.</p>
  * A Section should not contain others Sections and headers are not Sectionable!
  */
-public class HeaderItem extends AbstractHeaderItem<HeaderItem.HeaderViewHolder> implements IFilterable {
+public class HeaderItem
+        extends AbstractHeaderItem<HeaderItem.HeaderViewHolder>
+        implements IFilterable<String> {
 
     private String id;
     private String title;
     private String subtitle;
+    /* number of times this item has been refreshed */
+    protected int updates;
 
     public HeaderItem(String id) {
         super();
@@ -62,7 +66,7 @@ public class HeaderItem extends AbstractHeaderItem<HeaderItem.HeaderViewHolder> 
     }
 
     public String getSubtitle() {
-        return subtitle;
+        return this.subtitle + (getUpdates() > 0 ? " - u" + getUpdates() : "");
     }
 
     public void setSubtitle(String subtitle) {
@@ -72,6 +76,14 @@ public class HeaderItem extends AbstractHeaderItem<HeaderItem.HeaderViewHolder> 
     @Override
     public int getSpanSize(int spanCount, int position) {
         return spanCount;
+    }
+
+    public int getUpdates() {
+        return updates;
+    }
+
+    public void increaseUpdates() {
+        this.updates++;
     }
 
     @Override
@@ -93,9 +105,9 @@ public class HeaderItem extends AbstractHeaderItem<HeaderItem.HeaderViewHolder> 
             holder.mTitle.setText(getTitle());
         }
         List<ISectionable> sectionableList = adapter.getSectionItems(this);
-        String subTitle = (sectionableList.isEmpty() ? "Empty section" :
-                sectionableList.size() + " section items");
-        holder.mSubtitle.setText(subTitle);
+        int size = sectionableList.size();
+        setSubtitle(size == 0 ? "Empty section" : size + " section items");
+        holder.mSubtitle.setText(getSubtitle());
     }
 
     @Override
@@ -129,6 +141,11 @@ public class HeaderItem extends AbstractHeaderItem<HeaderItem.HeaderViewHolder> 
 
             // Support for StaggeredGridLayoutManager
             setFullSpan(true);
+        }
+
+        @Override
+        public String toString() {
+            return super.toString() + " " + mTitle.getText();
         }
     }
 

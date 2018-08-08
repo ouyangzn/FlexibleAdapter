@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Davide Steduto
+ * Copyright 2016-2017 Davide Steduto
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,9 @@ import java.util.List;
 
 import eu.davidea.flexibleadapter.FlexibleAdapter;
 import eu.davidea.flexibleadapter.SelectableAdapter.Mode;
-import eu.davidea.flexibleadapter.helpers.AnimatorHelper;
 import eu.davidea.flexibleadapter.helpers.ItemTouchHelperCallback;
 import eu.davidea.flexibleadapter.items.IFlexible;
-import eu.davidea.flexibleadapter.utils.FlexibleUtils;
+import eu.davidea.flexibleadapter.utils.LayoutUtils;
 import eu.davidea.flexibleadapter.utils.Log;
 
 /**
@@ -114,13 +113,13 @@ public abstract class FlexibleViewHolder extends ContentViewHolder
     @CallSuper
     public void onClick(View view) {
         int position = getFlexibleAdapterPosition();
-        if (!mAdapter.isEnabled(position)) return;
+        if (!mAdapter.isItemEnabled(position)) return;
         // Experimented that, if LongClick is not consumed, onClick is fired. We skip the
         // call to the listener in this case, which is allowed only in ACTION_STATE_IDLE.
         if (mAdapter.mItemClickListener != null && mActionState == ItemTouchHelper.ACTION_STATE_IDLE) {
-            Log.v("onClick on position %s mode=%s", position, FlexibleUtils.getModeName(mAdapter.getMode()));
+            Log.v("onClick on position %s mode=%s", position, LayoutUtils.getModeName(mAdapter.getMode()));
             // Get the permission to activate the View from user
-            if (mAdapter.mItemClickListener.onItemClick(position)) {
+            if (mAdapter.mItemClickListener.onItemClick(view, position)) {
                 // Now toggle the activation
                 toggleActivation();
             }
@@ -137,11 +136,11 @@ public abstract class FlexibleViewHolder extends ContentViewHolder
     @CallSuper
     public boolean onLongClick(View view) {
         int position = getFlexibleAdapterPosition();
-        if (!mAdapter.isEnabled(position)) return false;
+        if (!mAdapter.isItemEnabled(position)) return false;
         // If LongPressDrag is enabled, then LongClick must be skipped and the listener will
         // be called in onActionStateChanged in Drag mode.
         if (mAdapter.mItemLongClickListener != null && !mAdapter.isLongPressDragEnabled()) {
-            Log.v("onLongClick on position %s mode=%s", position, FlexibleUtils.getModeName(mAdapter.getMode()));
+            Log.v("onLongClick on position %s mode=%s", position, LayoutUtils.getModeName(mAdapter.getMode()));
             mAdapter.mItemLongClickListener.onItemLongClick(position);
             toggleActivation();
             return true;
@@ -160,11 +159,11 @@ public abstract class FlexibleViewHolder extends ContentViewHolder
     @Override
     public boolean onTouch(View view, MotionEvent event) {
         int position = getFlexibleAdapterPosition();
-        if (!mAdapter.isEnabled(position) || !isDraggable()) {
+        if (!mAdapter.isItemEnabled(position) || !isDraggable()) {
             Log.w("Can't start drag: Item is not enabled or draggable!");
             return false;
         }
-        Log.v("onTouch with DragHandleView on position %s mode=%s", position, FlexibleUtils.getModeName(mAdapter.getMode()));
+        Log.v("onTouch with DragHandleView on position %s mode=%s", position, LayoutUtils.getModeName(mAdapter.getMode()));
         if (event.getActionMasked() == MotionEvent.ACTION_DOWN && mAdapter.isHandleDragEnabled()) {
             //Start Drag!
             mAdapter.getItemTouchHelper().startDrag(this);
@@ -206,8 +205,7 @@ public abstract class FlexibleViewHolder extends ContentViewHolder
      * <p><b>Important note!</b> the selected background is visible if you added
      * {@code android:background="?attr/selectableItemBackground"} in the item layout <u>AND</u>
      * customized the file {@code style.xml}.</p>
-     * Alternatively, to set a background at runtime, you can use the new
-     * {@link eu.davidea.flexibleadapter.utils.DrawableUtils}.
+     * Alternatively, to set a background at runtime, you can use the new {@code DrawableUtils} from UI extension.
      * <p><b>Note:</b> This method must be called every time we want the activation state visible
      * on the itemView, for instance: after a Click (to add the item to the selection list) or
      * after a LongClick (to activate the ActionMode) or during dragging (to show that we enabled
@@ -286,13 +284,12 @@ public abstract class FlexibleViewHolder extends ContentViewHolder
      * actively scrolls the list (forward or backward).
      * <p>Implement your logic for different animators based on position, selection and/or
      * direction.</p>
-     * Use can take one of the predefined Animator from {@link AnimatorHelper} or create your own
-     * {@link Animator}(s), then add it to the list of animators.
+     * Use can take one of the predefined Animator from package UI class {@code AnimatorHelper}
+     * or create your own {@link Animator}(s), then add it to the list of animators.
      *
      * @param animators NonNull list of animators, which you should add new animators
      * @param position  can be used to differentiate the Animators based on positions
      * @param isForward can be used to separate animation from top/bottom or from left/right scrolling
-     * @see AnimatorHelper
      * @since 5.0.0-b8
      */
     public void scrollAnimators(@NonNull List<Animator> animators, int position, boolean isForward) {
@@ -322,7 +319,7 @@ public abstract class FlexibleViewHolder extends ContentViewHolder
         mActionState = actionState;
         alreadySelected = mAdapter.isSelected(position);
         Log.v("onActionStateChanged position=%s mode=%s actionState=%s",
-                position, FlexibleUtils.getModeName(mAdapter.getMode()),
+                position, LayoutUtils.getModeName(mAdapter.getMode()),
                 (actionState == ItemTouchHelper.ACTION_STATE_SWIPE ? "Swipe(1)" : "Drag(2)"));
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
             if (!alreadySelected) {
@@ -368,7 +365,7 @@ public abstract class FlexibleViewHolder extends ContentViewHolder
     @CallSuper
     public void onItemReleased(int position) {
         Log.v("onItemReleased position=%s mode=%s actionState=%s",
-                position, FlexibleUtils.getModeName(mAdapter.getMode()),
+                position, LayoutUtils.getModeName(mAdapter.getMode()),
                 (mActionState == ItemTouchHelper.ACTION_STATE_SWIPE ? "Swipe(1)" : "Drag(2)"));
         // Be sure to keep selection if MULTI and shouldAddSelectionInActionMode is active
         if (!alreadySelected) {

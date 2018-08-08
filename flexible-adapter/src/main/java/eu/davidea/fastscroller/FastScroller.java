@@ -27,6 +27,7 @@ import android.support.annotation.IntDef;
 import android.support.annotation.IntRange;
 import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -66,6 +67,7 @@ public class FastScroller extends FrameLayout {
     protected static final int BUBBLE_ANIMATION_DURATION = 300;
     protected static final int AUTOHIDE_ANIMATION_DURATION = 300;
     protected static final int DEFAULT_AUTOHIDE_DELAY_IN_MILLIS = 1000;
+    protected static final float DEFAULT_HANDLE_OPACITY = 1f;
     protected static final boolean DEFAULT_AUTOHIDE_ENABLED = true;
 
     @Retention(SOURCE)
@@ -90,8 +92,8 @@ public class FastScroller extends FrameLayout {
 
     protected int bubbleAndHandleColor = Color.TRANSPARENT;
     protected long autoHideDelayInMillis;
-    protected boolean isInitialized = false;
-    protected boolean autoHideEnabled, bubbleEnabled, ignoreTouchesOutsideHandle;
+    protected boolean isInitialized, autoHideEnabled, bubbleEnabled,
+            ignoreTouchesOutsideHandle, handleAlwaysVisible;
 
     @FastScrollerBubblePosition
     protected int bubblePosition;
@@ -100,9 +102,9 @@ public class FastScroller extends FrameLayout {
     protected ScrollbarAnimator scrollbarAnimator;
     protected RecyclerView.OnScrollListener onScrollListener;
 
-	/*--------------*/
+    /*--------------*/
     /* CONSTRUCTORS */
-	/*--------------*/
+    /*--------------*/
 
     public FastScroller(Context context) {
         super(context);
@@ -124,6 +126,7 @@ public class FastScroller extends FrameLayout {
             bubbleEnabled = a.getBoolean(R.styleable.FastScroller_fastScrollerBubbleEnabled, true);
             bubblePosition = a.getInteger(R.styleable.FastScroller_fastScrollerBubblePosition, DEFAULT_BUBBLE_POSITION);
             ignoreTouchesOutsideHandle = a.getBoolean(R.styleable.FastScroller_fastScrollerIgnoreTouchesOutsideHandle, false);
+            handleAlwaysVisible = a.getBoolean(R.styleable.FastScroller_fastScrollerHandleAlwaysVisible, false);
         } finally {
             a.recycle();
         }
@@ -142,7 +145,7 @@ public class FastScroller extends FrameLayout {
                     return;
                 int verticalScrollOffset = recyclerView.computeVerticalScrollOffset();
                 int verticalScrollRange = recyclerView.computeVerticalScrollRange();
-                float proportion = (float) verticalScrollOffset / ((float) verticalScrollRange - height);
+                float proportion = (float) verticalScrollOffset / (float) (verticalScrollRange - height);
                 setBubbleAndHandlePosition(height * proportion);
                 // If scroll amount is small, don't show it
                 if (minimumScrollThreshold == 0 || dy == 0 || Math.abs(dy) > minimumScrollThreshold || scrollbarAnimator.isAnimating()) {
@@ -153,9 +156,9 @@ public class FastScroller extends FrameLayout {
         };
     }
 
-	/*---------------*/
-	/* CONFIGURATION */
-	/*---------------*/
+    /*---------------*/
+    /* CONFIGURATION */
+    /*---------------*/
 
     /**
      * This is done by FlexibleAdapter already!
@@ -183,7 +186,7 @@ public class FastScroller extends FrameLayout {
                 if (bubble == null || handle.isSelected()) return true;
                 int verticalScrollOffset = FastScroller.this.recyclerView.computeVerticalScrollOffset();
                 int verticalScrollRange = FastScroller.this.computeVerticalScrollRange();
-                float proportion = (float) verticalScrollOffset / ((float) verticalScrollRange - height);
+                float proportion = (float) verticalScrollOffset / (float) (verticalScrollRange - height);
                 setBubbleAndHandlePosition(height * proportion);
                 return true;
             }
@@ -228,7 +231,7 @@ public class FastScroller extends FrameLayout {
 
         // Animators
         bubbleAnimator = new BubbleAnimator(bubble, BUBBLE_ANIMATION_DURATION);
-        scrollbarAnimator = new ScrollbarAnimator(bar, handle, autoHideDelayInMillis, AUTOHIDE_ANIMATION_DURATION);
+        scrollbarAnimator = new ScrollbarAnimator(bar, handle, handleAlwaysVisible, autoHideDelayInMillis, AUTOHIDE_ANIMATION_DURATION);
 
         // Runtime custom color OR the default (accentColor)
         if (bubbleAndHandleColor != Color.TRANSPARENT) {
@@ -282,9 +285,9 @@ public class FastScroller extends FrameLayout {
         }
     }
 
-	/*--------------*/
-	/* MAIN METHODS */
-	/*--------------*/
+    /*--------------*/
+    /* MAIN METHODS */
+    /*--------------*/
 
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
@@ -362,7 +365,8 @@ public class FastScroller extends FrameLayout {
     }
 
     /**
-     * Computes the index where the RecyclerView should be scrolled to based on the currY (y-coordinate of the touch event in the scrollbar)
+     * Computes the index where the RecyclerView should be scrolled to based on the currY
+     * (y-coordinate of the touch event in the scrollbar).
      *
      * @param currY y-coordinate of the touch event in the scrollbar
      * @return index position in the RecyclerView
@@ -414,17 +418,22 @@ public class FastScroller extends FrameLayout {
 
     /**
      * Sets the y-position of the bubble and the handle based on the current y-position.
-     * Override this method if you want to adjust the min and max position of the handle and the bubble e.g. the max position of the bubble is the same as the max position of the handle.
+     * Override this method if you want to adjust the min and max position of the handle and the bubble.
+     * E.g. the max position of the bubble is the same as the max position of the handle.
      *
-     * @param y current active y position in the scrollbar
+     * @param y current active y height in the scrollbar
      */
     protected void setBubbleAndHandlePosition(float y) {
+        if (height == 0) return; // Happens at startup
         int handleHeight = handle.getHeight();
-        handle.setY(getValueInRange(0, height - handleHeight, (int) (y - handleHeight / 2)));
+        // #605 - Remove small proportions of handleHeight at each scroll event,
+        // so the handle moves from top to bottom edges as its value changes.
+        y -= (y * handleHeight / height);
+        handle.setY(getValueInRange(0, height - handleHeight, (int) y));
         if (bubble != null) {
             int bubbleHeight = bubble.getHeight();
             if (bubblePosition == FastScrollerBubblePosition.ADJACENT) {
-                bubble.setY(getValueInRange(0, height - bubbleHeight - handleHeight / 2, (int) (y - bubbleHeight)));
+                bubble.setY(getValueInRange(0, height - bubbleHeight - handleHeight / 2, (int) (y - bubbleHeight / 1.5f)));
             } else {
                 bubble.setY(Math.max(0, (height - bubble.getHeight()) / 2));
                 bubble.setX(Math.max(0, (width - bubble.getWidth()) / 2));
@@ -432,9 +441,9 @@ public class FastScroller extends FrameLayout {
         }
     }
 
-	/*------------*/
-	/* ANIMATIONS */
-	/*------------*/
+    /*------------*/
+    /* ANIMATIONS */
+    /*------------*/
 
     protected void showBubble() {
         if (bubbleEnabled) {
@@ -446,9 +455,9 @@ public class FastScroller extends FrameLayout {
         bubbleAnimator.hideBubble();
     }
 
-	/*-----------*/
-	/* AUTO-HIDE */
-	/*-----------*/
+    /*-----------*/
+    /* AUTO-HIDE */
+    /*-----------*/
 
     public boolean isHidden() {
         return bar == null || handle == null ||
@@ -498,6 +507,17 @@ public class FastScroller extends FrameLayout {
      */
     public void setIgnoreTouchesOutsideHandle(boolean ignoreFlag) {
         ignoreTouchesOutsideHandle = ignoreFlag;
+    }
+
+    /**
+     * If enabled, it will keep handle always visible with 50% transparency.
+     * <p>Default value is {@code false}.</p>
+     *
+     * @param enabled true to keep the handle always visible, false to hide always
+     * @since 5.0.5
+     */
+    public void setHandleAlwaysVisible(boolean enabled) {
+        ignoreTouchesOutsideHandle = enabled;
     }
 
     /**
@@ -579,9 +599,9 @@ public class FastScroller extends FrameLayout {
         }
     }
 
-	/*------------*/
-	/* INTERFACES */
-	/*------------*/
+    /*------------*/
+    /* INTERFACES */
+    /*------------*/
 
     public interface BubbleTextCreator {
         String onCreateBubbleText(int position);
@@ -600,9 +620,9 @@ public class FastScroller extends FrameLayout {
         void setFastScroller(@NonNull FastScroller fastScroller);
     }
 
-	/*----------------*/
-	/* DELEGATE CLASS */
-	/*----------------*/
+    /*----------------*/
+    /* DELEGATE CLASS */
+    /*----------------*/
 
     /**
      * This class links the FastScroller to the RecyclerView.
@@ -631,6 +651,7 @@ public class FastScroller extends FrameLayout {
         }
 
         public void onDetachedFromRecyclerView(RecyclerView recyclerView) {
+            mFastScroller = null;
             mRecyclerView = null;
         }
 
@@ -659,7 +680,8 @@ public class FastScroller extends FrameLayout {
          * @return the current instance of the {@link FastScroller} object
          * @since 5.0.0-b1
          */
-        public FastScroller getFastScroller() {
+        public @Nullable
+        FastScroller getFastScroller() {
             return mFastScroller;
         }
 
@@ -673,22 +695,26 @@ public class FastScroller extends FrameLayout {
          * @since 5.0.0-b6
          */
         @SuppressWarnings("ConstantConditions")
-        public void setFastScroller(@NonNull FastScroller fastScroller) {
+        public void setFastScroller(@Nullable FastScroller fastScroller) {
             if (DEBUG) {
                 Log.v(TAG, "Setting FastScroller...");
             }
             if (mRecyclerView == null) {
                 throw new IllegalStateException("RecyclerView cannot be null. Setup FastScroller after the Adapter has been added to the RecyclerView.");
-            } else if (fastScroller == null) {
-                throw new IllegalArgumentException("FastScroller cannot be null. Review the widget ID of the FastScroller.");
+            } else if (fastScroller != null) {
+                mFastScroller = fastScroller;
+                mFastScroller.setRecyclerView(mRecyclerView);
+                mFastScroller.setEnabled(true);
+                mFastScroller.setViewsToUse(
+                        R.layout.library_fast_scroller_layout,
+                        R.id.fast_scroller_bubble,
+                        R.id.fast_scroller_handle);
+                if (DEBUG) Log.i(TAG, "FastScroller initialized");
+            } else if (mFastScroller != null) {
+                mFastScroller.setEnabled(false);
+                mFastScroller = null;
+                if (DEBUG) Log.i(TAG, "FastScroller removed");
             }
-            mFastScroller = fastScroller;
-            mFastScroller.setRecyclerView(mRecyclerView);
-            mFastScroller.setViewsToUse(
-                    R.layout.library_fast_scroller_layout,
-                    R.id.fast_scroller_bubble,
-                    R.id.fast_scroller_handle);
-            if (DEBUG) Log.i(TAG, "FastScroller initialized");
         }
     }
 

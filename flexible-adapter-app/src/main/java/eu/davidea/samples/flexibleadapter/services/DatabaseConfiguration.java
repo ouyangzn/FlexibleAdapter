@@ -23,9 +23,10 @@ public class DatabaseConfiguration {
     public static int size = 1000;//items
     public static int delay = 300;//ms
     public static int animateToLimit = maxSize;//start with maxSize
+    public static boolean animateWithDiffUtil = false;
     public static boolean notifyChange = true;
     public static boolean notifyMove = false;
-    public static boolean animateOnScrolling = true;
+    public static boolean animateOnForwardScrolling = true;
     public static boolean animateOnUpdate = true;
     public static boolean userLearnedSelection = false;
     public static boolean subItemSpecificAnimation = false;

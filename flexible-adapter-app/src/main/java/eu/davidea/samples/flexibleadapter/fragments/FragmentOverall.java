@@ -31,6 +31,7 @@ public class FragmentOverall extends AbstractFragment
         implements OnDecorationSelectedListener {
 
     public static final String TAG = FragmentOverall.class.getSimpleName();
+    private static final long INITIAL_DELAY_300 = 300L;
 
     /**
      * Custom implementation of FlexibleAdapter
@@ -81,8 +82,7 @@ public class FragmentOverall extends AbstractFragment
         mAdapter = new OverallAdapter(getActivity());
         mAdapter.setOnlyEntryAnimation(true)
                 .setAnimationInterpolator(new DecelerateInterpolator())
-                .setAnimationInitialDelay(500L)
-                .setAnimationDelay(70L);
+                .setAnimationInitialDelay(INITIAL_DELAY_300);
 
         // Prepare the RecyclerView and attach the Adapter to it
         mRecyclerView = getView().findViewById(R.id.recycler_view);
@@ -115,13 +115,13 @@ public class FragmentOverall extends AbstractFragment
         scrollableUseCaseItem = new ScrollableUseCaseItem(
                 getString(R.string.overall_use_case_title),
                 getString(R.string.overall_use_case_description));
-        mAdapter.addScrollableHeader(scrollableUseCaseItem);
+        // Delayed! So entry animation will perform together
+        mAdapter.addScrollableHeaderWithDelay(scrollableUseCaseItem, INITIAL_DELAY_300, true);
     }
 
     @Override
     public void showNewLayoutInfo(MenuItem item) {
         super.showNewLayoutInfo(item);
-        mRecyclerView.setAdapter(mAdapter);
         mAdapter.showLayoutInfo(true);
     }
 
@@ -176,7 +176,7 @@ public class FragmentOverall extends AbstractFragment
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_list_type) {
-            mAdapter.setAnimationOnScrolling(true);
+            mAdapter.setAnimationOnForwardScrolling(true);
         } else if (item.getItemId() == R.id.action_decoration) {
             BottomSheetDecorationDialog bottomSheetDialogFragment = BottomSheetDecorationDialog.newInstance(R.layout.bottom_sheet_item_decoration, this);
             bottomSheetDialogFragment.show(getActivity().getSupportFragmentManager(), BottomSheetDecorationDialog.TAG);

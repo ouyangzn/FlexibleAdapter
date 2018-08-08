@@ -16,6 +16,7 @@ import eu.davidea.flexibleadapter.items.AbstractFlexibleItem;
 import eu.davidea.flexibleadapter.items.IExpandable;
 import eu.davidea.flexibleadapter.items.IFlexible;
 import eu.davidea.flexibleadapter.items.IHeader;
+import eu.davidea.flexibleadapter.items.ISectionable;
 import eu.davidea.samples.flexibleadapter.R;
 import eu.davidea.samples.flexibleadapter.holders.HeaderHolder;
 import eu.davidea.samples.flexibleadapter.holders.ItemHolder;
@@ -359,8 +360,9 @@ public class DatabaseService {
         for (int j = 1; j <= SUB_ITEMS; j++) {
             SubItem subItem = new SubItem(expandableItem.getId() + "-SB" + j);
             subItem.setTitle("Sub Item " + j);
-            //In this case the Header is the same parent: ExpandableHeaderItem instance
-            subItem.setHeader(expandableItem);
+            // NOTE: In case you want to retrieve the parent, you can implement ISectionable
+            // then, assign the Header: ExpandableHeaderItem instance.
+            //subItem.setHeader(expandableItem);
             expandableItem.addSubItem(subItem);
         }
         return expandableItem;
@@ -594,10 +596,19 @@ public class DatabaseService {
      * notified with CHANGE Payload in the Adapter list when refreshed.
      */
     public void updateNewItems() {
+        IHeader header = null;
         for (IFlexible iFlexible : mItems) {
             if (iFlexible instanceof AbstractItem) {
                 AbstractItem item = (AbstractItem) iFlexible;
                 item.increaseUpdates();
+            }
+            if (iFlexible instanceof ISectionable) {
+                IHeader newHeader = ((ISectionable) iFlexible).getHeader();
+                if (newHeader instanceof HeaderItem && !newHeader.equals(header)) {
+                    header = newHeader;
+                    HeaderItem headerItem = (HeaderItem) header;
+                    headerItem.increaseUpdates();
+                }
             }
         }
     }

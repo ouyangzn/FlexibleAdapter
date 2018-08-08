@@ -21,8 +21,9 @@ import eu.davidea.viewholders.FlexibleViewHolder;
  * @author Davide Steduto
  * @since 19/10/2016
  */
-public class HeaderHolder extends AbstractHeaderItem<HeaderHolder.HeaderViewHolder>
-        implements IFilterable, IHolder<HeaderModel> {
+public class HeaderHolder
+        extends AbstractHeaderItem<HeaderHolder.HeaderViewHolder>
+        implements IFilterable<String>, IHolder<HeaderModel> {
 
     private HeaderModel model;
 
@@ -89,7 +90,7 @@ public class HeaderHolder extends AbstractHeaderItem<HeaderHolder.HeaderViewHold
         /**
          * Default constructor.
          */
-        public HeaderViewHolder(View view, FlexibleAdapter adapter) {
+        HeaderViewHolder(View view, FlexibleAdapter adapter) {
             super(view, adapter, true);//true only for header items when will be sticky
             ButterKnife.bind(this, view);
         }

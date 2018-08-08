@@ -29,7 +29,7 @@ import eu.davidea.viewholders.FlexibleViewHolder;
  * @since 19/10/2016
  */
 public class ItemHolder extends AbstractSectionableItem<ItemHolder.ItemViewHolder, HeaderHolder>
-        implements IFilterable, IHolder<ItemModel> {
+        implements IFilterable<String>, IHolder<ItemModel> {
 
     private ItemModel model;
 
@@ -98,7 +98,7 @@ public class ItemHolder extends AbstractSectionableItem<ItemHolder.ItemViewHolde
         /**
          * Default constructor.
          */
-        public ItemViewHolder(View view, FlexibleAdapter adapter) {
+        ItemViewHolder(View view, FlexibleAdapter adapter) {
             super(view, adapter);
             ButterKnife.bind(this, view);
         }

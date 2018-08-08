@@ -20,6 +20,7 @@ import eu.davidea.flexibleadapter.FlexibleAdapter;
 import eu.davidea.flexibleadapter.Payload;
 import eu.davidea.flexibleadapter.SelectableAdapter.Mode;
 import eu.davidea.flexibleadapter.common.SmoothScrollGridLayoutManager;
+import eu.davidea.flexibleadapter.helpers.EmptyViewHelper;
 import eu.davidea.flexibleadapter.items.AbstractFlexibleItem;
 import eu.davidea.flipview.FlipView;
 import eu.davidea.samples.flexibleadapter.ExampleAdapter;
@@ -27,6 +28,7 @@ import eu.davidea.samples.flexibleadapter.MainActivity;
 import eu.davidea.samples.flexibleadapter.R;
 import eu.davidea.samples.flexibleadapter.animators.FadeInDownItemAnimator;
 import eu.davidea.samples.flexibleadapter.items.ProgressItem;
+import eu.davidea.samples.flexibleadapter.items.ScrollableLayoutItem;
 import eu.davidea.samples.flexibleadapter.services.DatabaseConfiguration;
 import eu.davidea.samples.flexibleadapter.services.DatabaseService;
 
@@ -67,7 +69,7 @@ public class FragmentEndlessScrolling extends AbstractFragment
 
         // Create New Database and Initialize RecyclerView
         if (savedInstanceState == null) {
-            DatabaseService.getInstance().createEndlessDatabase(0); //N. of items
+            DatabaseService.getInstance().createHeadersSectionsDatabase(0, 0); //N. of items
         }
         initializeRecyclerView(savedInstanceState);
 
@@ -84,17 +86,20 @@ public class FragmentEndlessScrolling extends AbstractFragment
         mFab.setImageResource(R.drawable.ic_refresh_white_24dp);
     }
 
-    @SuppressWarnings({"ConstantConditions", "NullableProblems"})
     private void initializeRecyclerView(Bundle savedInstanceState) {
         // Initialize Adapter and RecyclerView
         // ExampleAdapter makes use of stableIds, I strongly suggest to implement 'item.hashCode()'
         FlexibleAdapter.useTag("EndlessScrollingAdapter");
-        mAdapter = new ExampleAdapter(DatabaseService.getInstance().getDatabaseList(), getActivity());
+        if (savedInstanceState != null) {
+            mAdapter = new ExampleAdapter(DatabaseService.getInstance().getDatabaseList(), getActivity());
+        } else {
+            mAdapter = new ExampleAdapter(null, getActivity());
+        }
         mAdapter.setAutoScrollOnExpand(true)
                 //.setAnimateToLimit(Integer.MAX_VALUE) //Use the default value
                 .setNotifyMoveOfFilteredItems(true) //When true, filtering on big list is very slow, not in this case!
                 .setNotifyChangeOfUnfilteredItems(true) //true by default
-                .setAnimationOnScrolling(DatabaseConfiguration.animateOnScrolling)
+                .setAnimationOnForwardScrolling(DatabaseConfiguration.animateOnForwardScrolling)
                 .setAnimationOnReverseScrolling(true);
         mRecyclerView = getView().findViewById(R.id.recycler_view);
         mRecyclerView.setLayoutManager(createNewLinearLayoutManager());
@@ -108,6 +113,12 @@ public class FragmentEndlessScrolling extends AbstractFragment
         FastScroller fastScroller = getView().findViewById(R.id.fast_scroller);
         fastScroller.addOnScrollStateChangeListener((MainActivity) getActivity());
         mAdapter.setFastScroller(fastScroller);
+
+        // New empty views handling, to set after FastScroller
+        EmptyViewHelper.create(mAdapter,
+                getView().findViewById(R.id.empty_view),
+                getView().findViewById(R.id.filter_view));
+
         mAdapter.setLongPressDragEnabled(true) //Enable long press to drag items
                 .setHandleDragEnabled(true) //Enable drag using handle view
                 .setSwipeEnabled(true); //Enable swipe items
@@ -117,15 +128,18 @@ public class FragmentEndlessScrolling extends AbstractFragment
         mListener.onFragmentChange(swipeRefreshLayout, mRecyclerView, Mode.IDLE);
 
         // EndlessScrollListener - OnLoadMore (v5.0.0)
-        mAdapter.setLoadingMoreAtStartUp(true) //To call only if the list is empty
+        mAdapter.setLoadingMoreAtStartUp(savedInstanceState == null) //To call only if the list is empty
                 //.setEndlessPageSize(3) //Endless is automatically disabled if newItems < 3
-                .setEndlessTargetCount(15) //Endless is automatically disabled if totalItems >= 15
-                .setEndlessScrollThreshold(1) //Default=1
+                //.setEndlessTargetCount(15) //Endless is automatically disabled if totalItems >= 15
+                .setEndlessScrollThreshold(20) //Default=1
                 .setEndlessScrollListener(this, mProgressItem)
-                .setTopEndless(true);
+                .setTopEndless(false);
 
-        // Add 1 Footer items
-        mAdapter.addScrollableFooter();
+        // Add 1 Header item
+        ScrollableLayoutItem scrollHeader = new ScrollableLayoutItem("SLI");
+        scrollHeader.setTitle("Endless Scrolling");
+        scrollHeader.setSubtitle("...with ScrollableHeaderItem");
+        mAdapter.addScrollableHeader(scrollHeader);
     }
 
     @Override
@@ -169,7 +183,7 @@ public class FragmentEndlessScrolling extends AbstractFragment
         // We don't want load more items when searching into the current Collection!
         // Alternatively, for a special filter, if we want load more items when filter is active, the
         // new items that arrive from remote, should be already filtered, before adding them to the Adapter!
-        if (mAdapter.hasSearchText()) {
+        if (mAdapter.hasFilter()) {
             mAdapter.onLoadMoreComplete(null);
             return;
         }
@@ -180,7 +194,7 @@ public class FragmentEndlessScrolling extends AbstractFragment
                 final List<AbstractFlexibleItem> newItems = new ArrayList<>();
 
                 // 1. Simulating success/failure with Random
-                int count = new Random().nextInt(7);
+                int count = new Random().nextInt(200);
                 int totalItemsOfType = mAdapter.getItemCountOfTypes(R.layout.recycler_simple_item);
                 for (int i = 1; i <= count; i++) {
                     newItems.add(DatabaseService.newSimpleItem(totalItemsOfType + i, null));
@@ -196,8 +210,9 @@ public class FragmentEndlessScrolling extends AbstractFragment
                 } else {
                     DatabaseService.getInstance().addAll(newItems);
                 }
-                mAdapter.onLoadMoreComplete(newItems, 5000L);
+                mAdapter.onLoadMoreComplete(newItems, (newItems.isEmpty() ? -1 : 3000L));
                 // - Retrieve the new page number after adding new items!
+                Log.d(TAG, "LastPosition=" + lastPosition);
                 Log.d(TAG, "EndlessCurrentPage=" + mAdapter.getEndlessCurrentPage());
                 Log.d(TAG, "EndlessPageSize=" + mAdapter.getEndlessPageSize());
                 Log.d(TAG, "EndlessTargetCount=" + mAdapter.getEndlessTargetCount());
@@ -223,7 +238,7 @@ public class FragmentEndlessScrolling extends AbstractFragment
                             Toast.LENGTH_SHORT).show();
                 }
             }
-        }, 4000L);
+        }, 2000L);
     }
 
     @Override
@@ -260,7 +275,7 @@ public class FragmentEndlessScrolling extends AbstractFragment
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_list_type) {
-            mAdapter.setAnimationOnScrolling(true);
+            mAdapter.setAnimationOnForwardScrolling(true);
         } else if (item.getItemId() == R.id.action_top_scrolling) {
             item.setChecked(!item.isChecked());
             mAdapter.setTopEndless(item.isChecked());
