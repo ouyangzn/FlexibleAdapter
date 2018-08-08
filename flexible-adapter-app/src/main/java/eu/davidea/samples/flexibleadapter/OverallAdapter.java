@@ -35,7 +35,7 @@ public class OverallAdapter extends FlexibleAdapter<AbstractFlexibleItem> {
      * The view is represented by a custom Item type to better represent any dynamic content.
      */
     public void showLayoutInfo(boolean scrollToPosition) {
-        if (!hasSearchText()) {
+        if (!hasFilter()) {
             //Define Example View
             final ScrollableLayoutItem item = new ScrollableLayoutItem("LAY-L");
             if (mRecyclerView.getLayoutManager() instanceof StaggeredGridLayoutManager) {
@@ -51,8 +51,8 @@ public class OverallAdapter extends FlexibleAdapter<AbstractFlexibleItem> {
                     R.string.columns,
                     String.valueOf(getFlexibleLayoutManager().getSpanCount()))
             );
-            addScrollableHeaderWithDelay(item, 500L, scrollToPosition);
-            removeScrollableHeaderWithDelay(item, 3000L);
+            addScrollableHeaderWithDelay(item, 300L, scrollToPosition);
+            removeScrollableHeaderWithDelay(item, 2000L);
         }
     }
 

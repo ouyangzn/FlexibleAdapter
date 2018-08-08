@@ -16,6 +16,7 @@ import eu.davidea.flexibleadapter.FlexibleAdapter;
 import eu.davidea.flexibleadapter.Payload;
 import eu.davidea.flexibleadapter.SelectableAdapter.Mode;
 import eu.davidea.flexibleadapter.common.FlexibleItemDecoration;
+import eu.davidea.flexibleadapter.helpers.EmptyViewHelper;
 import eu.davidea.flexibleadapter.items.AbstractFlexibleItem;
 import eu.davidea.flipview.FlipView;
 import eu.davidea.samples.flexibleadapter.R;
@@ -70,9 +71,9 @@ public class FragmentInstagramHeaders extends AbstractFragment
         // Initialize Adapter and RecyclerView
         // true = it makes use of stableIds, I strongly suggest to implement 'item.hashCode()'
         FlexibleAdapter.useTag("InstagramHeadersAdapter");
-        mAdapter = new FlexibleAdapter<>(DatabaseService.getInstance().getDatabaseList(), getActivity(), true);
+        mAdapter = new FlexibleAdapter<>(null, getActivity(), true);
         mAdapter.addListener(getActivity())
-                .setAnimationOnScrolling(true)
+                .setAnimationOnForwardScrolling(true)
                 .setAnimationOnReverseScrolling(true);
         mRecyclerView = getView().findViewById(R.id.recycler_view);
         mRecyclerView.setLayoutManager(createNewLinearLayoutManager());
@@ -81,12 +82,17 @@ public class FragmentInstagramHeaders extends AbstractFragment
         // NOTE: Use default item animator 'canReuseUpdatedViewHolder()' will return true if
         // a Payload is provided. FlexibleAdapter is actually sending Payloads onItemChange.
         mRecyclerView.setItemAnimator(new DefaultItemAnimator());
-        // Custom divider item decorator with 24dpi as empty space between sections
-        mRecyclerView.addItemDecoration(new FlexibleItemDecoration(getActivity()).withDefaultDivider());
+        // 24dpi as empty space between sections (each post)
+        mRecyclerView.addItemDecoration(new FlexibleItemDecoration(getActivity())
+                .withSectionGapOffset(24));
+
+        // New empty views handling
+        EmptyViewHelper.create(mAdapter, getView().findViewById(R.id.empty_view));
 
         mAdapter.setDisplayHeadersAtStartUp(true) //Show Headers at startUp!
                 .setStickyHeaders(true) //Make headers sticky
                 // Endless scroll with 1 item threshold
+                .setLoadingMoreAtStartUp(true)
                 .setEndlessScrollListener(this, new ProgressItem())
                 .setEndlessScrollThreshold(1); //Default=1
 
@@ -160,7 +166,7 @@ public class FragmentInstagramHeaders extends AbstractFragment
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_list_type)
-            mAdapter.setAnimationOnScrolling(true);
+            mAdapter.setAnimationOnForwardScrolling(true);
         return super.onOptionsItemSelected(item);
     }
 

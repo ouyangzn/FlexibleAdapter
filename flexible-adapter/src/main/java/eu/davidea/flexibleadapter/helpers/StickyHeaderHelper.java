@@ -20,7 +20,6 @@ import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.OrientationHelper;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.RecyclerView.OnScrollListener;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
@@ -28,10 +27,11 @@ import android.widget.FrameLayout;
 
 import eu.davidea.flexibleadapter.FlexibleAdapter;
 import eu.davidea.flexibleadapter.FlexibleAdapter.OnStickyHeaderChangeListener;
-import eu.davidea.flexibleadapter.R;
 import eu.davidea.flexibleadapter.items.IHeader;
 import eu.davidea.flexibleadapter.utils.Log;
 import eu.davidea.viewholders.FlexibleViewHolder;
+
+import static eu.davidea.flexibleadapter.utils.LayoutUtils.getClassName;
 
 /**
  * A sticky header helper, to use only with {@link FlexibleAdapter}.
@@ -96,18 +96,19 @@ public final class StickyHeaderHelper extends OnScrollListener {
 
     private void initStickyHeadersHolder() {
         if (mStickyHolderLayout == null) {
-            // Create stickyContainer for shadow elevation
-            FrameLayout stickyContainer = createContainer(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT);
             ViewGroup oldParentLayout = getParent(mRecyclerView);
-            oldParentLayout.addView(stickyContainer);
-            // Initialize Holder Layout
-            mStickyHolderLayout = (ViewGroup) LayoutInflater.from(mRecyclerView.getContext()).inflate(R.layout.sticky_header_layout, stickyContainer);
-            Log.i("Default StickyHolderLayout initialized");
+            if (oldParentLayout != null) {
+                // Initialize Holder Layout, will be also used for elevation
+                mStickyHolderLayout = createContainer(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT);
+                oldParentLayout.addView(mStickyHolderLayout);
+                Log.i("Default StickyHolderLayout initialized");
+            }
         } else {
             Log.i("User defined StickyHolderLayout initialized");
         }
+        displayWithAnimation = true;
         // Show sticky header if exists already
         updateOrClearHeader(false);
     }
@@ -142,7 +143,7 @@ public final class StickyHeaderHelper extends OnScrollListener {
 
     private void updateHeader(int headerPosition, boolean updateHeaderContent) {
         // Check if there is a new header to be sticky
-        if (mHeaderPosition != headerPosition) {
+        if (mHeaderPosition != headerPosition && mStickyHolderLayout != null) {
             // #244 - Don't animate if header is already visible at the first layout position
             int firstVisibleItemPosition = mAdapter.getFlexibleLayoutManager().findFirstVisibleItemPosition();
             // Animate if headers were hidden, but don't if configuration changed (rotation)
@@ -157,13 +158,18 @@ public final class StickyHeaderHelper extends OnScrollListener {
             int oldHeaderPosition = mHeaderPosition;
             mHeaderPosition = headerPosition;
             FlexibleViewHolder holder = getHeaderViewHolder(headerPosition);
-            Log.d("swapHeader newHeaderPosition=%s", mHeaderPosition);
+            // Swapping header
             swapHeader(holder, oldHeaderPosition);
         } else if (updateHeaderContent) {
-            // #299 - ClassCastException after click on expanded sticky header when AutoCollapse is enabled
-//			mStickyHeaderViewHolder = getHeaderViewHolder(headerPosition);
-//			mStickyHeaderViewHolder.setBackupPosition(headerPosition);
-            mAdapter.onBindViewHolder(mStickyHeaderViewHolder, headerPosition);
+            // #299 - ClassCastException after click on expanded sticky header when auto-collapse is enabled.
+            // #594 - Checking same item view type and increased delay to 100ms.
+            if (mStickyHeaderViewHolder.getItemViewType() == mAdapter.getItemViewType(headerPosition)) {
+                mAdapter.onBindViewHolder(mStickyHeaderViewHolder, headerPosition);
+            } else {
+                Log.e("updateHeader Wrong itemViewType for StickyViewHolder=%s, PositionViewHolder=%s",
+                        getClassName(mStickyHeaderViewHolder),
+                        getClassName(getHeaderViewHolder(headerPosition)));
+            }
             ensureHeaderParent();
         }
         translateHeader();
@@ -231,8 +237,13 @@ public final class StickyHeaderHelper extends OnScrollListener {
     }
 
     private void swapHeader(FlexibleViewHolder newHeader, int oldHeaderPosition) {
+        Log.d("swapHeader newHeaderPosition=%s", mHeaderPosition);
         if (mStickyHeaderViewHolder != null) {
             resetHeader(mStickyHeaderViewHolder);
+            // #568, #575 - Header ViewHolder out of the top screen must be recycled manually
+            if (mHeaderPosition > oldHeaderPosition) {
+                mAdapter.onViewRecycled(mStickyHeaderViewHolder);
+            }
         }
         mStickyHeaderViewHolder = newHeader;
         mStickyHeaderViewHolder.setIsRecyclable(false);
@@ -391,7 +402,10 @@ public final class StickyHeaderHelper extends OnScrollListener {
         if (holder == null) {
             // Create and binds a new ViewHolder
             holder = (FlexibleViewHolder) mAdapter.createViewHolder(mRecyclerView, mAdapter.getItemViewType(position));
+            // Skip ViewHolder caching by setting not recyclable
+            holder.setIsRecyclable(false);
             mAdapter.bindViewHolder(holder, position);
+            holder.setIsRecyclable(true);
 
             // Calculate width and height
             int widthSpec;

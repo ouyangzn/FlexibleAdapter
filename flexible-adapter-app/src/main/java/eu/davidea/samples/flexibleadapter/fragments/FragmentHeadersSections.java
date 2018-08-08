@@ -1,6 +1,7 @@
 package eu.davidea.samples.flexibleadapter.fragments;
 
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.widget.DefaultItemAnimator;
 import android.support.v7.widget.GridLayoutManager;
@@ -16,6 +17,7 @@ import eu.davidea.flexibleadapter.FlexibleAdapter;
 import eu.davidea.flexibleadapter.SelectableAdapter.Mode;
 import eu.davidea.flexibleadapter.common.FlexibleItemDecoration;
 import eu.davidea.flexibleadapter.common.SmoothScrollGridLayoutManager;
+import eu.davidea.flexibleadapter.helpers.EmptyViewHelper;
 import eu.davidea.flexibleadapter.items.IHeader;
 import eu.davidea.flexibleadapter.items.ISectionable;
 import eu.davidea.flipview.FlipView;
@@ -67,7 +69,7 @@ public class FragmentHeadersSections extends AbstractFragment
 
         // Create New Database and Initialize RecyclerView
         if (savedInstanceState == null) {
-            DatabaseService.getInstance().createHeadersSectionsDatabase(400, 100);
+            DatabaseService.getInstance().createHeadersSectionsDatabase(400, 30);
         }
         initializeRecyclerView(savedInstanceState);
 
@@ -78,6 +80,12 @@ public class FragmentHeadersSections extends AbstractFragment
         FlipView.stopLayoutAnimation();
     }
 
+    @Override
+    public void onViewStateRestored(@Nullable Bundle savedInstanceState) {
+        super.onViewStateRestored(savedInstanceState);
+        // Restoring selection is done in MainActivity for all samples (occurs after this callback).
+    }
+
     @SuppressWarnings({"ConstantConditions", "NullableProblems"})
     private void initializeRecyclerView(Bundle savedInstanceState) {
         // Initialize Adapter and RecyclerView
@@ -85,7 +93,7 @@ public class FragmentHeadersSections extends AbstractFragment
         FlexibleAdapter.useTag("HeadersSectionsAdapter");
         mAdapter = new ExampleAdapter(DatabaseService.getInstance().getDatabaseList(), getActivity());
         mAdapter.setNotifyMoveOfFilteredItems(true)
-                .setAnimationOnScrolling(DatabaseConfiguration.animateOnScrolling);
+                .setAnimationOnForwardScrolling(DatabaseConfiguration.animateOnForwardScrolling);
         mRecyclerView = getView().findViewById(R.id.recycler_view);
         mRecyclerView.setAdapter(mAdapter);
         mRecyclerView.setLayoutManager(createNewLinearLayoutManager());
@@ -94,16 +102,23 @@ public class FragmentHeadersSections extends AbstractFragment
         // a Payload is provided. FlexibleAdapter is actually sending Payloads onItemChange.
         mRecyclerView.setItemAnimator(new DefaultItemAnimator());
         mRecyclerView.addItemDecoration(new FlexibleItemDecoration(getActivity())
-//				.addItemViewType(R.layout.recycler_header_item, 8, 8, 8, 8)
-.addItemViewType(R.layout.recycler_simple_item, 0, 8, 0, 8)
-.withSectionGapOffset(24)
-.withEdge(true));
+                //.addItemViewType(R.layout.recycler_header_item, 8, 8, 8, 8)
+                .addItemViewType(R.layout.recycler_simple_item, 0, 8, 0, 8)
+                .withSectionGapOffset(24)
+                .withEdge(true));
 
         // Add FastScroll to the RecyclerView, after the Adapter has been attached the RecyclerView!!!
         FastScroller fastScroller = getView().findViewById(R.id.fast_scroller);
         fastScroller.addOnScrollStateChangeListener((MainActivity) getActivity());
         mAdapter.setFastScroller(fastScroller);
 
+        // New empty views handling, to set after FastScroller
+        EmptyViewHelper.create(mAdapter,
+                getView().findViewById(R.id.empty_view),
+                getView().findViewById(R.id.filter_view),
+                (EmptyViewHelper.OnEmptyViewListener) getActivity()); // Optional!!
+
+        // More settings
         mAdapter.setLongPressDragEnabled(true)
                 .setHandleDragEnabled(true)
                 .setSwipeEnabled(true)
